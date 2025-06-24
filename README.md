@@ -30,7 +30,7 @@ A modern, secure authentication system built with **React** (Vite), **Node.js**,
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/school-project.git
+   git clone https://github.com/izEyy442/school-project.git
    cd school-project
    ```
 
@@ -231,17 +231,6 @@ npm install
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📋 TODO
-
-- [ ] JWT token implementation
-- [ ] Password reset functionality
-- [ ] Email verification
-- [ ] Admin dashboard
-- [ ] User profile management
-- [ ] Two-factor authentication
-- [ ] API rate limiting
-- [ ] Unit tests
-
 ## 🛡️ License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -249,14 +238,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👨‍💻 Author
 
 **Your Name**
-- GitHub: [@iZeyy442](https://github.com/iZeyy442)
-
-## 🙏 Acknowledgments
-
-- React team for the amazing framework
-- Vite for the blazing fast development experience
-- Express.js community
-- MySQL team for the reliable database
+- GitHub: [@izEyy442](https://github.com/izEyy442)
 
 ---
 

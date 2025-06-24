@@ -9,7 +9,7 @@ let PORT = 3002;
 const DB_CONFIG = {
     host: "localhost",
     user: "root",
-    password: "your_password", // Change this to your MySQL root password
+    password: "your_password_here",
     port: 3306,
     authPlugins: {
         mysql_native_password: () => () => Buffer.alloc(0)
