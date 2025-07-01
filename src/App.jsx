@@ -8,9 +8,15 @@ function App() {
     const [userInfo, setUserInfo] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDarkTheme, setIsDarkTheme] = useState(true);
-    const [showPopup, setShowPopup] = useState(false);
-    const [popupData, setPopupData] = useState({ title: "", message: "", type: "" });
     const [notifications, setNotifications] = useState([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [accessToken, setAccessToken] = useState("");
+    const [currentTrack, setCurrentTrack] = useState(null);
+
+    const CLIENT_ID = "your_client_id_here";
+    const CLIENT_SECRET = "your_client_secret_here";
 
     const showNotification = (message, type = "error") => {
         const id = Date.now();
@@ -26,11 +32,6 @@ function App() {
         setNotifications(prev => prev.filter(notif => notif.id !== id));
     };
 
-    const closePopup = () => {
-        setShowPopup(false);
-        setPopupData({ title: "", message: "", type: "" });
-    };
-
     const toggleTheme = () => {
         setIsDarkTheme(!isDarkTheme);
         document.documentElement.setAttribute("data-theme", !isDarkTheme ? "dark" : "light");
@@ -39,6 +40,81 @@ function App() {
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", isDarkTheme ? "dark" : "light");
     }, [isDarkTheme]);
+
+    useEffect(() => {
+        const getToken = async () => {
+            try {
+                const response = await fetch("https://accounts.spotify.com/api/token", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Authorization": `Basic ${btoa(CLIENT_ID + ":" + CLIENT_SECRET)}`
+                    },
+                    body: "grant_type=client_credentials"
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    setAccessToken(data.access_token);
+                }
+            } catch (error) {
+                console.error("Error getting Spotify token:", error);
+            }
+        };
+
+        if (isLoggedIn) {
+            getToken();
+        }
+    }, [isLoggedIn]);
+
+    const searchMusic = async (query) => {
+        if (!query.trim() || !accessToken) return;
+
+        setIsSearching(true);
+        try {
+            const response = await fetch(
+                `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=20`,
+                {
+                    headers: {
+                        "Authorization": `Bearer ${accessToken}`
+                    }
+                }
+            );
+
+            const data = await response.json();
+            if (response.ok) {
+                setSearchResults(data.tracks.items);
+            } else {
+                showNotification("Erreur lors de la recherche", "error");
+            }
+        } catch (error) {
+            console.error("Search error:", error);
+            showNotification("Erreur de connexion à Spotify", "error");
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        searchMusic(searchQuery);
+    };
+
+    const formatDuration = (ms) => {
+        const minutes = Math.floor(ms / 60000);
+        const seconds = ((ms % 60000) / 1000).toFixed(0);
+        return `${minutes}:${seconds.padStart(2, '0')}`;
+    };
+
+    const playPreview = (track) => {
+        if (track.preview_url) {
+            setCurrentTrack(track);
+            const audio = new Audio(track.preview_url);
+            audio.play();
+        } else {
+            showNotification("Aperçu non disponible pour cette chanson", "error");
+        }
+    };
 
     const handleInputChange = (e) => {
         setFormData({
@@ -73,12 +149,10 @@ function App() {
                     setTimeout(() => {
                         setIsLoggedIn(true);
                         setUserInfo(data.user);
-                        closePopup();
                     }, 1500);
                 } else {
                     setTimeout(() => {
                         setIsLogin(true);
-                        closePopup();
                     }, 1500);
                 }
                 setFormData({ username: "", email: "", nom: "", prenom: "", password: "" });
@@ -87,7 +161,11 @@ function App() {
             }
         } catch (error) {
             console.error("Network error:", error);
-            showNotification("Erreur de connexion au serveur. Vérifiez que le serveur est démarré.", "error");
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                showNotification("Serveur non disponible. Vérifiez que le serveur backend est démarré et que MySQL est configuré correctement.", "error");
+            } else {
+                showNotification("Erreur de connexion au serveur.", "error");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -96,6 +174,9 @@ function App() {
     const handleLogout = () => {
         setIsLoggedIn(false);
         setUserInfo(null);
+        setSearchQuery("");
+        setSearchResults([]);
+        setCurrentTrack(null);
         showNotification("Déconnexion réussie", "success");
     };
 
@@ -108,48 +189,99 @@ function App() {
                     </button>
                 </div>
                 
-                <div className="dashboard-section">
-                    <div className="dashboard-card">
-                        <div className="dashboard-header">
-                            <div className="welcome-section">
-                                <h1>Bon retour parmi-nous, {userInfo.prenom} !</h1>
-                                <p className="user-handle">@{userInfo.username}</p>
-                                <p className="user-handle">{userInfo.email}</p>
-                            </div>
+                <div className="music-section">
+                    <div className="music-header">
+                        <div className="user-welcome">
+                            <h1>Découvrez la musique, {userInfo.prenom}!</h1>
+                            <p>Recherchez et écoutez vos artistes favoris</p>
                         </div>
-                        
-                        <div className="dashboard-content">
-                            <div className="stats-grid">
-                                <div className="stat-card">
-                                    <div className="stat-icon">📊</div>
-                                    <div className="stat-info">
-                                        <h3>Dashboard</h3>
-                                        <p>Vue d"ensemble</p>
-                                    </div>
-                                </div>
-                                <div className="stat-card">
-                                    <div className="stat-icon">⚙️</div>
-                                    <div className="stat-info">
-                                        <h3>Paramètres</h3>
-                                        <p>Configuration</p>
-                                    </div>
-                                </div>
-                                <div className="stat-card">
-                                    <div className="stat-icon">👤</div>
-                                    <div className="stat-info">
-                                        <h3>Profil</h3>
-                                        <p>Mes informations</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="dashboard-actions">
-                            <button onClick={handleLogout} className="logout-button">
-                                SE DÉCONNECTER
-                            </button>
-                        </div>
+                        <button onClick={handleLogout} className="logout-button">
+                            Se déconnecter
+                        </button>
                     </div>
+
+                    <div className="search-container">
+                        <form onSubmit={handleSearchSubmit} className="search-form">
+                            <div className="search-input-container">
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Rechercher des chansons, artistes, albums..."
+                                    className="search-input"
+                                />
+                                <button 
+                                    type="submit" 
+                                    className="search-button"
+                                    disabled={isSearching || !searchQuery.trim()}
+                                >
+                                    {isSearching ? (
+                                        <div className="loader-small"></div>
+                                    ) : (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                                            <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2"/>
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {searchResults.length > 0 && (
+                        <div className="results-container">
+                            <h2>Résultats de recherche ({searchResults.length})</h2>
+                            <div className="tracks-grid">
+                                {searchResults.map((track) => (
+                                    <div key={track.id} className="track-card">
+                                        <div className="track-image">
+                                            <img 
+                                                src={track.album.images[1]?.url || track.album.images[0]?.url} 
+                                                alt={track.album.name}
+                                            />
+                                            <button 
+                                                className="play-button"
+                                                onClick={() => playPreview(track)}
+                                            >
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                                    <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <div className="track-info">
+                                            <h3 className="track-name">{track.name}</h3>
+                                            <p className="track-artist">
+                                                {track.artists.map(artist => artist.name).join(", ")}
+                                            </p>
+                                            <p className="track-album">{track.album.name}</p>
+                                            <div className="track-details">
+                                                <span className="track-duration">
+                                                    {formatDuration(track.duration_ms)}
+                                                </span>
+                                                <span className="track-popularity">
+                                                    ⭐ {track.popularity}/100
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {searchResults.length === 0 && searchQuery && !isSearching && (
+                        <div className="no-results">
+                            <h3>Aucun résultat trouvé</h3>
+                            <p>Essayez avec d'autres mots-clés</p>
+                        </div>
+                    )}
+
+                    {!searchQuery && (
+                        <div className="welcome-music">
+                            <h2>Commencez votre découverte musicale</h2>
+                            <p>Utilisez la barre de recherche pour trouver vos chansons préférées</p>
+                        </div>
+                    )}
                 </div>
 
                 {notifications.length > 0 && (
@@ -208,7 +340,7 @@ function App() {
                 <div className="auth-card">
                     <div className="auth-header">
                         <h1>{isLogin ? "Connexion" : "Inscription"}</h1>
-                        <p>{isLogin ? "Connectez-vous à votre compte" : "Créez votre nouveau compte"}</p>
+                        <p>{isLogin ? "Connectez-vous pour découvrir la musique" : "Créez votre compte pour accéder à la musique"}</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="auth-form">
@@ -279,7 +411,7 @@ function App() {
                             {isLoading ? (
                                 <div className="loader"></div>
                             ) : (
-                                isLogin ? "Se connecter" : "S\"inscrire"
+                                isLogin ? "Se connecter" : "S'inscrire"
                             )}
                         </button>
                     </form>
@@ -293,7 +425,7 @@ function App() {
                             }}
                             className="switch-btn"
                         >
-                            {isLogin ? "S\"inscrire" : "Se connecter"}
+                            {isLogin ? "S'inscrire" : "Se connecter"}
                         </button>
                     </div>
                 </div>
